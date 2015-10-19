@@ -20,17 +20,21 @@ shinyUI(fluidPage(
                 selectInput("dataset", "View the sample dataset:", 
                 choices = c("2020-Jan", "2021-Jan")),
                 
+                # Upload data
                 tags$strong("2. Upload the system generated data required for each KPI item"), br(),br(),
                 tags$strong("kpi.1 A&E Waiting Time"), br(),
-                tags$p("kpi.1 AE WT"), br(), br(),
                 
-                tags$strong("kpi.2 SOP waiting time"), br(),
-                tags$p("kpi.2 SOP WT"), br(), br()
+                
+                tags$strong("kpi.2 SOP waiting time"), br()
+                
             )
         ),
         
         mainPanel(
-            tableOutput('table')
+            tabsetPanel(
+                tabPanel("Readme!", h4("How to use")),
+                tabPanel("Sample Dataset", h4("Summary"), tableOutput('table'))
+            )
         )
         
     )
