@@ -20,9 +20,9 @@ M = 01
 
 # Filepath
 
-kpi.template <- file.path("template", "A Clinical KPI.xls")
+kpi.template <- file.path("KPI_temp.xls")
 
-kpi.report <- file.path("report", "A Clinical KPI", Y, "-", M , ".xls")
+kpi.report <- file.path(paste("KPI_", Y, "-", M , ".xls", sep = ""))
 
 # Empty dataframe
 empty.frame <- data.frame(A1 = numeric(0),
@@ -42,6 +42,10 @@ file.copy(from = kpi.template,
           to = kpi.report,
           overwrite = TRUE,
           copy.mode = TRUE, copy.date = FALSE)
+
+# Loading template
+
+
 
 # Function to read xlsx file
 read_range <- function (input, ri, ci, si = 1){
@@ -84,9 +88,9 @@ read_range <- function (input, ri, ci, si = 1){
 }
 
 # Function to process kpi
-kpi.1 <- function(Mmm){
+kpi.1 <- function(Y, M){
     
-    path <- grep("(.*kpi.1 .*)", source.kpi$filepath, value = TRUE)
+    path <- paste("kpi.1_AE_WT_", Y, "-", M, ".xlsx", sep = "")
     
     AE_WT <- read_range(path, 5:12, 1:14)
     
@@ -134,7 +138,7 @@ kpi.1 <- function(Mmm){
 # Sample data
 
 Y = 2021
-M = 01
+M = 1
 
 a = c(101:110)
 b = sample(11:20, 10, replace = TRUE)
@@ -143,8 +147,8 @@ c = sample(101:200, 10, replace = TRUE)
 df1 <- data.frame("Serial" = a, "Cats" = b)
 df2 <- data.frame("Serial" = a, "Cats" = c)
 
-sampleFile20 <- file.path("kpi.1_AE_WT_2020-01.xlsx")
-sampleFile21 <- file.path("kpi.1_AE_WT_2021-01.xlsx")
+sampleFile20 <- file.path("kpi.1_AE_WT_2020-1.xlsx")
+sampleFile21 <- file.path("kpi.1_AE_WT_2021-1.xlsx")
 
 df20 <- read_range(sampleFile20, 5:12, 1:14)
     df20 <- df20 %>% filter(var1 != "A&E")
@@ -181,7 +185,31 @@ shinyServer(function(input, output) {
         
         read_range(kpi.1.lyFile$datapath, 5:12, 1:14)
     }) 
-    
+    dfFinal <- reactive({
+        kpi.1.tyFile <- input$kpi.1_ty
+        kpi.1.lyFile <- input$kpi.1_ly
+        
+        if (is.null(kpi.1.tyFile))
+            return(NULL)
+        if (is.null(kpi.1.lyFile))
+            return(NULL)
+        
+        dfTY <- read_range(kpi.1.tyFile$datapath, 5:12, 1:14)
+        dfLY <- read_range(kpi.1.lyFile$datapath, 5:12, 1:14)
+        
+        dfTY <- dfTY %>% filter(var1 == input$triage) %>% melt(id=c("var1")) %>%
+            select(institution = variable, ThisYear = value)
+            
+        dfLY <- dfLY %>% filter(var1 == input$triage) %>% melt(id=c("var1")) %>% 
+            select(institution = variable, LastYear = value)
+        
+        right_join(dfTY, dfLY, by="institution") %>% melt(id=c("institution")) %>%
+            select(institution, period = variable, percentage = value) %>% arrange(institution, period)
+        
+    })
+    output$tableFinal <- renderTable({
+        dfFinal()
+    })
     
     output$table <- renderTable({
         datasetInput()
@@ -192,11 +220,11 @@ shinyServer(function(input, output) {
     })
     
     selectedData <- reactive({
-        datasetInput() %>% filter(var1 == input$triage) %>% melt(id=("var1")) %>% select(institution = variable, percentage = value)
+        datasetInput() %>% filter(var1 == input$triage) %>% melt(id=c("var1")) %>% select(institution = variable, percentage = value)
     })
     
     output$selectedData <- renderTable({
-        datasetInput() %>% filter(var1 == input$triage) %>% melt(id=("var1")) %>% select(institution = variable, percentage = value)
+        datasetInput() %>% filter(var1 == input$triage) %>% melt(id=c("var1")) %>% select(institution = variable, percentage = value)
     })
     
     output$samplePlot <- renderPlot({
@@ -211,22 +239,41 @@ shinyServer(function(input, output) {
 
     })
     
+    tyData <- reactive({
+        datasetInput() %>% filter(var1 == input$triage) %>% melt(id=("var1")) %>% select(institution = variable, percentage = value)
+    })
+    
     output$kpi.1Plot <- renderPlot({
-        ggplot()+
-            geom_line(data = df1, aes(Serial, Cats), colour = "red")+
-            geom_line(data = df2, aes(Serial, Cats), colour = "blue")+
-            theme(legend.position="right")+
-            scale_fill_discrete(name = "Period", labels = c("This Year", "Last Year"))
+        
+        df <- dfFinal()
+        
+        if(!is.null(df)){
+            ggplot(data = df, aes(x = institution, y = percentage, fill = period))+
+                geom_bar(stat="identity", position = "dodge")+
+                labs(title="Percentage of A&E cases seen within target time")
+        }
+
     })
 
-    output$downloadData <- downloadHandler(
-        filename = function() { 
-            paste("KPI Report", Y, "-", M, ".xlsx", sep="") 
-        },
-        content = function(file) {
-            write.xlsx(datasetInput(), file, sheetName = "KPI")
-        }
-    )
+#     output$downloadData <- downloadHandler(
+#         filename = function() { 
+#             paste("KPI_", Y, "-", M, ".xls", sep="") 
+#         },
+#         content = function(file) {
+#             kpi.1.c <- kpi.1(2021, 1)
+#             kpi.1.p <- kpi.1(2020, 1)
+#             
+#             as.KPI <- loadWorkbook(kpi.report)
+#             sheets.KPI <- getSheets(as.KPI)
+#             
+#             addDataFrame(kpi.1.c, sheets.KPI$source, col.names=FALSE, row.names=FALSE, startRow=4, startColumn=3)
+#             addDataFrame(kpi.1.p, sheets.KPI$source, col.names=FALSE, row.names=FALSE, startRow=4, startColumn=22)
+#             
+#             as.KPI$setForceFormulaRecalculation(TRUE)
+#             saveWorkbook(as.KPI, kpi.report)
+#             file.rename(kpi.report, file)
+#         }
+#     )
     
 })
 

@@ -42,7 +42,10 @@ shinyUI(fluidPage(
                 
                 # Download compiled data
                 h4("3. Download the compiled KPI report"), br(),
-                downloadButton('downloadData', 'Download')
+                tags$a(href="./report/KPI_2021-1.xls", tags$img(src = "download.png", alt = "download", width = "64px", height = "43.25px"), "Download"), br(),
+                #downloadButton('downloadData', 'Download'),br(),
+                tags$p("[Demo report only, I've tried to make available the finished Excel file
+                       for download but apparently shiny-server has some security restraint regarding file I/O]")
                 
             )
         ),
@@ -97,7 +100,7 @@ shinyUI(fluidPage(
                          h4("Last year's data"),
                          tableOutput('lyTable')),
                 
-                tabPanel("Plots", h4("kpi.1 A&E Waiting Time"), plotOutput('kpi.1Plot'))
+                tabPanel("Plots", h4("kpi.1 A&E Waiting Time"), plotOutput('kpi.1Plot'), tableOutput("tableFinal"))
             )
         )
         
